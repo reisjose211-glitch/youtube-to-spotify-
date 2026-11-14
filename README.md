@@ -61,15 +61,20 @@ in Safari, and the finished MP3 is handed to the iOS share sheet / Files.
 
 ## 1. Run the server
 
-On a Mac or PC on the same Wi-Fi as your iPhone (needs Python 3.10+ and ffmpeg):
+**Windows:** install Python from https://www.python.org/downloads/ (tick
+"Add python.exe to PATH"), then double-click **start.bat**. The first run sets
+itself up, then shows the address to open on your iPhone. If Windows Firewall
+asks, allow access on **Private networks**.
+
+**Mac / Linux:**
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt      # Windows: .venv\Scripts\pip
+.venv/bin/pip install -r requirements.txt
 .venv/bin/python app.py
 ```
 
-Install ffmpeg with `brew install ffmpeg` (Mac) or `winget install ffmpeg` (Windows).
+ffmpeg is bundled, so there is nothing else to install.
 
 Or with Docker (ffmpeg included):
 
@@ -83,9 +88,8 @@ addresses, so running it at home is the most reliable.
 
 ## 2. Open it on your iPhone
 
-1. Find your computer's local address (Mac: System Settings › Wi-Fi › Details;
-   Windows: `ipconfig`), for example `192.168.1.20`.
-2. In Safari on the iPhone open `http://192.168.1.20:8000`.
+1. The server window shows an address such as `http://192.168.1.20:8000`.
+2. Open that address in Safari on the iPhone (same Wi-Fi as the computer).
 3. Tap Share › **Add to Home Screen** to get an app icon.
 
 ## 3. Save straight into the Spotify folder

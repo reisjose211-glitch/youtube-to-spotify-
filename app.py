@@ -5,6 +5,7 @@ Run:  python app.py   then open http://<this-computer's-ip>:8000 on your iPhone.
 import os
 import re
 import shutil
+import socket
 import tempfile
 import threading
 import time
@@ -24,6 +25,30 @@ ALLOWED_HOSTS = {
     "music.youtube.com", "youtu.be",
 }
 
+
+
+def find_ffmpeg():
+    """Use the system ffmpeg, or the copy bundled with the imageio-ffmpeg package."""
+    if shutil.which("ffmpeg"):
+        return None  # yt-dlp finds it on PATH by itself
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
+
+
+def local_address():
+    """This computer's address on the Wi-Fi network, for opening on the phone."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))  # no data is sent
+            return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+
+
+FFMPEG = find_ffmpeg()
 app = Flask(__name__, static_folder=None)
 jobs = {}  # id -> {status, progress, title, filename, path, error, created}
 jobs_lock = threading.Lock()
@@ -82,6 +107,7 @@ def convert(job_id, url):
         "writethumbnail": True,
         "match_filter": check_length,
         "progress_hooks": [on_progress],
+        **({"ffmpeg_location": FFMPEG} if FFMPEG else {}),
         "postprocessors": [
             {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": BITRATE},
             {"key": "FFmpegMetadata"},   # title / artist tags so Spotify shows them
@@ -145,4 +171,8 @@ def download(job_id):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), threaded=True)
+    port = int(os.environ.get("PORT", 8000))
+    print("\n  On your iPhone (same Wi-Fi), open Safari and go to:\n")
+    print("      http://%s:%d\n" % (local_address(), port))
+    print("  Keep this window open while you use the app. Close it to stop.\n")
+    app.run(host="0.0.0.0", port=port, threaded=True)

@@ -1,3 +1,4 @@
 flask>=3.0
 yt-dlp
-gunicorn
+gunicorn; sys_platform != "win32"
+imageio-ffmpeg
