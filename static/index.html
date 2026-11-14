@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="YT to MP3">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#121212">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="apple-touch-icon" href="/static/icon.png">
+<title>YouTube to MP3</title>
+<style>
+  :root { --bg:#121212; --card:#1e1e1e; --text:#fff; --muted:#a7a7a7; --green:#1ed760; --red:#ff6b6b; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100dvh; background: var(--bg); color: var(--text);
+    font: 17px/1.4 -apple-system, system-ui, sans-serif;
+    display: flex; justify-content: center;
+    padding: calc(env(safe-area-inset-top) + 40px) 16px 40px;
+  }
+  main { width: 100%; max-width: 440px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 24px; }
+  .row { display: flex; gap: 8px; }
+  input {
+    flex: 1; min-width: 0; padding: 14px; border-radius: 12px; border: 1px solid #333;
+    background: var(--card); color: var(--text); font-size: 16px;
+  }
+  input:focus { outline: 2px solid var(--green); border-color: transparent; }
+  button, a.btn {
+    display: block; width: 100%; padding: 15px; border: 0; border-radius: 999px;
+    background: var(--green); color: #000; font-size: 17px; font-weight: 700;
+    text-align: center; text-decoration: none; cursor: pointer;
+  }
+  button.small { width: auto; padding: 0 18px; background: #333; color: var(--text); font-weight: 600; }
+  button:disabled { opacity: .5; }
+  #go { margin-top: 12px; }
+  #panel { margin-top: 24px; background: var(--card); border-radius: 16px; padding: 18px; }
+  #title { font-weight: 600; margin-bottom: 12px; word-break: break-word; }
+  .bar { height: 6px; background: #333; border-radius: 3px; overflow: hidden; }
+  .bar div { height: 100%; width: 0; background: var(--green); transition: width .3s; }
+  #msg { color: var(--muted); font-size: 14px; margin-top: 10px; }
+  #msg.error { color: var(--red); }
+  a.plain { display: block; text-align: center; color: var(--muted); font-size: 14px; margin-top: 14px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>YouTube to MP3</h1>
+  <p class="sub">Paste a link, then save the MP3 to your Spotify folder.</p>
+
+  <div class="row">
+    <input id="url" type="url" inputmode="url" placeholder="https://youtu.be/…" autocomplete="off" autocapitalize="off">
+    <button id="paste" class="small" type="button">Paste</button>
+  </div>
+  <button id="go" type="button">Convert</button>
+
+  <div id="panel" hidden>
+    <div id="title"></div>
+    <div class="bar" id="bar"><div></div></div>
+    <div id="msg"></div>
+    <button id="save" type="button" hidden>Save to Files</button>
+    <a id="direct" class="plain" hidden>Download instead</a>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const url = $('url'), go = $('go'), panel = $('panel'), msg = $('msg');
+let file = null;
+
+function show(text, isError) {
+  msg.textContent = text;
+  msg.className = isError ? 'error' : '';
+}
+
+function reset() {
+  file = null;
+  panel.hidden = false;
+  $('title').textContent = '';
+  $('bar').hidden = false;
+  $('bar').firstElementChild.style.width = '0';
+  $('save').hidden = true;
+  $('direct').hidden = true;
+}
+
+$('paste').onclick = async () => {
+  try { url.value = (await navigator.clipboard.readText()).trim(); }
+  catch { url.focus(); }
+};
+
+url.addEventListener('keydown', e => { if (e.key === 'Enter') go.click(); });
+
+go.onclick = async () => {
+  const link = url.value.trim();
+  if (!link) return url.focus();
+  reset();
+  go.disabled = true;
+  show('Starting…');
+  try {
+    const res = await fetch('/api/convert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: link }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    await poll(data.id);
+  } catch (err) {
+    $('bar').hidden = true;
+    show(err.message || 'Something went wrong.', true);
+  }
+  go.disabled = false;
+};
+
+async function poll(id) {
+  for (;;) {
+    await new Promise(r => setTimeout(r, 1000));
+    const res = await fetch('/api/status/' + id);
+    const job = await res.json();
+    if (!res.ok) throw new Error(job.error);
+    if (job.status === 'error') throw new Error(job.error);
+    $('bar').firstElementChild.style.width = job.progress + '%';
+    if (job.status === 'done') return ready(id, job);
+    show(job.status === 'converting' ? 'Converting to MP3…' : 'Downloading… ' + job.progress + '%');
+  }
+}
+
+async function ready(id, job) {
+  const href = '/api/file/' + id;
+  $('title').textContent = job.title;
+  $('direct').href = href;
+  $('direct').hidden = false;
+  show('Fetching the MP3…');
+
+  // Load the MP3 now so the Save button can open the share sheet immediately.
+  const blob = await (await fetch(href)).blob();
+  const mp3 = new File([blob], job.filename, { type: 'audio/mpeg' });
+  $('bar').hidden = true;
+
+  if (navigator.canShare && navigator.canShare({ files: [mp3] })) {
+    file = mp3;
+    $('save').hidden = false;
+    show('Ready. Tap Save to Files, then choose your Spotify folder.');
+  } else {
+    $('direct').textContent = 'Download MP3';
+    $('direct').className = 'btn';
+    show('Ready.');
+  }
+}
+
+$('save').onclick = async () => {
+  try {
+    await navigator.share({ files: [file] });
+    show('Saved. Open Spotify › Your Library › Local Files to play it.');
+  } catch (err) {
+    if (err.name !== 'AbortError') show('Could not open the share sheet. Use "Download instead".', true);
+  }
+};
+</script>
+</body>
+</html>
