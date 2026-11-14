@@ -7,6 +7,52 @@ so it shows up under Spotify's Local Files.
 Only download audio you have the right to (your own uploads, Creative Commons,
 public domain, or with the owner's permission).
 
+## Option A: iPhone only (no computer)
+
+This uses the free **a-Shell** app from the App Store, which can run the
+converter (`ytmp3.py`) directly on the phone.
+
+### One-time setup
+
+1. Install **a-Shell** from the App Store and open it.
+2. Type these, pressing return after each:
+   ```
+   pip install yt-dlp
+   curl -L -o ~/Documents/ytmp3.py https://raw.githubusercontent.com/reisjose211-glitch/youtube-to-spotify-/claude/admiring-hypatia-2kr8tr/ytmp3.py
+   pickFolder
+   ```
+3. `pickFolder` opens the Files picker: choose **On My iPhone > Spotify** and tap Open.
+4. Type `bookmark spotify` so a-Shell remembers the folder.
+5. In Spotify's settings turn on **Show audio files from this device**.
+
+### Each time
+
+1. Copy the YouTube link.
+2. Open a-Shell and type:
+   ```
+   jump spotify
+   python ~/Documents/ytmp3.py
+   ```
+   It picks the link up from the clipboard (or asks you to paste it) and saves
+   the MP3 into the Spotify folder. Find it in Spotify under
+   **Your Library > Local Files**.
+
+### Optional: one-tap Home Screen button
+
+In the **Shortcuts** app make a new shortcut with two actions:
+
+1. **Get Clipboard**
+2. a-Shell's **Execute Command**, with these two lines (insert the Clipboard
+   variable where shown):
+   ```
+   jump spotify
+   python ~/Documents/ytmp3.py [Clipboard]
+   ```
+
+Then use Share > **Add to Home Screen**. Copy a link, tap the icon, done.
+
+## Option B: run a server on a computer
+
 ## How it works
 
 An iPhone web page cannot convert video by itself, so the conversion runs on a
